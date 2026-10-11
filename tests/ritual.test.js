@@ -97,3 +97,12 @@ test('brief corroborated hand occlusion preserves hold but sustained loss restar
   const other = waiting(); hold(other, 0, 1000); hold(other, 1100, 1400, uncertain);
   hold(other, 1500, 2800); assert.equal(other.phase, 'waiting');
 });
+
+test('keepsake opens only after the complete answer has remained visible for three seconds', () => {
+  const r = lit(); hold(r, 1600, 2000, open); r.tick(7000);
+  assert.equal(r.phase, 'reading');
+  r.tick(9999); assert.equal(r.phase, 'reading');
+  r.tick(10000); assert.equal(r.phase, 'keepsake');
+  assert.equal(r.answer, '一条答案');
+  r.reset(10100); assert.equal(r.phase, 'resetting');
+});

@@ -57,7 +57,15 @@ export class Renderer {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     for (const surface of [this.lens, this.film]) { surface.width = this.width; surface.height = this.height; }
     this.cx = this.width / 2; this.cy = this.height * 0.5;
-    this.frameScale = Math.min(this.width * .52 / 436, this.height * .44 / 302);
+    this.desktopLayout = this.width > 650;
+    if (this.desktopLayout) {
+      const top = Math.max(160, this.height * .18);
+      const bottom = Math.max(64, this.height * .08);
+      this.sceneScale = Math.min((this.width - 48) / 1440, Math.max(1, this.height - top - bottom) / 760);
+      this.cy = this.height / 2;
+      this.frameSize = Math.min(this.width * .62, (this.height - 48) * 365 / 325);
+    }
+    this.frameScale = this.desktopLayout ? this.frameSize * .24 / 151 : Math.min(this.width * .52 / 436, this.height * .44 / 302);
     this.finalRadius = 151 * this.frameScale;
     this.initialRadius = Math.hypot(this.width, this.height) * 0.68;
     document.documentElement.style.setProperty('--center-y', `${this.cy}px`);
@@ -65,9 +73,10 @@ export class Renderer {
   }
 
   nicknameSize(nickname, zoom) {
-    const target = mix(Math.min(108, this.width * 0.095), Math.min(60, this.finalRadius * 0.25), zoom);
+    const finalSize = this.desktopLayout ? Math.min(96, this.finalRadius * .42) : Math.min(60, this.finalRadius * .25);
+    const target = mix(Math.min(108, this.width * 0.095), finalSize, zoom);
     this.ctx.font = `italic 600 ${target}px ${nameFont}`;
-    const available = mix(Math.min(660, this.width * 0.78), this.finalRadius * 1.38, zoom);
+    const available = mix(Math.min(660, this.width * (this.desktopLayout ? .60 : .78)), this.finalRadius * (this.desktopLayout ? 2.1 : 1.38), zoom);
     return Math.min(target, target * available / Math.max(1, this.ctx.measureText(nickname || '你的名字').width));
   }
 
@@ -79,7 +88,7 @@ export class Renderer {
     ctx.drawImage(video, -width / 2, -height / 2, width, height); ctx.restore();
   }
 
-  draw({ now, zoom, filmOpacity, nickname, glow, hold, phase, cameraReady }) {
+  draw({ now, zoom, filmOpacity, nickname, glow, hold, phase, cameraReady, expansion = 0 }) {
     const { ctx, width: w, height: h, cx, cy } = this;
     if (cameraReady && !this.wasCameraReady) this.introAt = now;
     this.wasCameraReady = cameraReady;
@@ -87,6 +96,11 @@ export class Renderer {
     this.introPulse = this.reducedMotion ? 0.5 : 0.5 + Math.sin(now / 1800) * 0.5;
     this.lightPulse = this.reducedMotion ? 1 : .75 + .25 * Math.sin(now / 1050);
     const radius = mix(this.initialRadius, this.finalRadius, zoom);
+    if (cameraReady && this.decorParts) {
+      this.drawFramedScene(zoom, nickname, glow, expansion, now);
+      if (filmOpacity > 0) this.drawFilm(radius, zoom, filmOpacity, nickname, false);
+      return { radius, nameSize: this.nicknameSize(nickname, zoom) };
+    }
     const dt = Math.min(100, now - (this.lastFrame || now)); this.lastFrame = now;
     this.charge += (hold - this.charge) * (1 - Math.exp(-dt / 200));
     ctx.fillStyle = '#17171e'; ctx.fillRect(0, 0, w, h);
@@ -121,15 +135,17 @@ export class Renderer {
       this.drawGlass(radius, zoom, glow);
     }
     if (filmOpacity > 0) this.drawFilm(radius, zoom, filmOpacity, nickname, !cameraReady);
-    if (nickname && cameraReady && filmOpacity < 1) this.drawName(nickname, zoom, 1 - filmOpacity, glow);
     if (cameraReady && zoom > 0 && this.decorParts) this.drawFramedScene(zoom, nickname, glow);
     return { radius, nameSize: this.nicknameSize(nickname, zoom) };
   }
 
-  drawFramedScene(opacity, nickname, glow) {
+  drawFramedScene(zoom, nickname, glow, expansion = 0, now = 0) {
     const { ctx, width: w, height: h, cx, cy } = this;
     if (!this.decorParts) return;
-    ctx.save(); ctx.globalAlpha = opacity;
+    const dt = Math.max(0, Math.min(100, now - (this.decorTime ?? now)));
+    this.decorTime = now;
+    this.decorRotation = (this.decorRotation ?? 0) + (this.reducedMotion ? 0 : dt * .000004 * glow);
+    ctx.save();
     ctx.fillStyle = '#f7eff4'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = 'rgba(196,171,186,.22)';
     for (let y=14;y<h;y+=24) for(let x=14;x<w;x+=24) {
@@ -144,36 +160,70 @@ export class Renderer {
       [0,760,395,320], [395,755,335,315],
     ];
     const tile = (index,x,y,size) => {
+      if (index > 0 && !this.reducedMotion) {
+        y += Math.sin(now / (1400 + index * 90) + index * 1.7) * Math.min(20, h * .025) * zoom;
+      }
       const [sx,sy,sw,sh] = regions[index];
       const ratio = Math.min(size/sw,size/sh);
-      ctx.drawImage(art,sx,sy,sw,sh,x+(size-sw*ratio)/2,y+(size-sh*ratio)/2,sw*ratio,sh*ratio);
+      const width = sw * ratio;
+      const height = sh * ratio;
+      const spread = 1 - zoom;
+      if (index > 0 && (this.decorRotation > 0 || spread > 0)) {
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(1 + spread * 3, 1 + spread * 3);
+        ctx.translate(x + size / 2 - cx, y + size / 2 - cy);
+        ctx.rotate(this.decorRotation * (index % 2 ? 1 : -1));
+        ctx.drawImage(art,sx,sy,sw,sh,-width/2,-height/2,width,height); ctx.restore();
+      } else ctx.drawImage(art,sx,sy,sw,sh,x+(size-width)/2,y+(size-height)/2,width,height);
     };
-    const size = Math.min(w * .74, h * .88);
+    const restingSize = this.desktopLayout ? this.frameSize : Math.min(w * .74, h * .88);
+    const fullSize = Math.hypot(w / .644, h / .48) * 1.02;
+    const size = mix(fullSize, restingSize, zoom) * (1 + expansion * .12);
     const frameX = cx - size * .5, frameY = cy - size * .5;
     const rx = size * .322, ry = size * .24;
     ctx.save(); ctx.beginPath(); ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); ctx.clip();
-    this.drawVideo(ctx, Math.max(rx*2/this.video.videoWidth,ry*2/this.video.videoHeight),cx,cy);
+    const fullVideoScale = Math.max(w / this.video.videoWidth, h / this.video.videoHeight);
+    const mirrorVideoScale = Math.max(restingSize * .644 / this.video.videoWidth, restingSize * .48 / this.video.videoHeight);
+    this.drawVideo(ctx, mix(fullVideoScale, mirrorVideoScale, zoom) * (1 + expansion * .12),cx,cy);
     ctx.restore();
     ctx.save(); ctx.shadowColor = 'rgba(94,71,80,.16)'; ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 3; tile(0, frameX, frameY, size); ctx.restore();
-    const side = Math.min(w * .17, h * .22, 190);
-    const left = Math.max(8, cx - size * .49 - side);
-    const right = Math.min(w-side-8, cx + size * .49);
-    tile(1,left,h*.19,side);
-    tile(2,cx-size*.58,h*.12,side*.8);
-    tile(3,right,h*.16,side);
-    tile(4,right,h*.39,side);
-    tile(5,left,h*.58,side*.8);
-    tile(6,cx-size*.53,h*.77,side*.8);
-    tile(7,cx-size*.32,h*.76,side*1.25);
-    tile(8,right,h*.66,side);
-    tile(9,cx+size*.32,h*.80,side*.8);
-    if (glow > 0) {
-      ctx.save(); ctx.shadowColor = '#fff'; ctx.shadowBlur = 18*this.lightPulse;
-      ctx.globalAlpha *= glow*this.lightPulse*.4;
-      tile(0,frameX,frameY,size); ctx.restore();
+    if (this.desktopLayout) {
+      const s = this.sceneScale;
+      tile(1,cx-650*s,cy-300*s,170*s);
+      tile(2,cx-490*s,cy-340*s,145*s);
+      tile(3,cx+465*s,cy-310*s,180*s);
+      tile(4,Math.min(w-180*s-24,cx+585*s),cy-100*s,180*s);
+      tile(5,Math.max(24,cx-710*s),cy+65*s,145*s);
+      tile(6,cx-650*s,cy+230*s,145*s);
+      tile(7,cx-450*s,cy+205*s,195*s);
+      tile(8,cx+470*s,cy+165*s,180*s);
+      tile(9,cx+300*s,cy+230*s,145*s);
+    } else {
+      const side = Math.min(w * .17, h * .22, 190);
+      const left = Math.max(8, cx - size * .49 - side);
+      const right = Math.min(w-side-8, cx + size * .49);
+      tile(1,left,h*.19,side);
+      tile(2,cx-size*.58,h*.12,side*.8);
+      tile(3,right,h*.16,side);
+      tile(4,right,h*.39,side);
+      tile(5,left,h*.58,side*.8);
+      tile(6,cx-size*.53,h*.77,side*.8);
+      tile(7,cx-size*.32,h*.76,side*1.25);
+      tile(8,right,h*.66,side);
+      tile(9,cx+size*.32,h*.80,side*.8);
     }
-    this.drawName(nickname,1,1,glow); ctx.restore();
+    ctx.restore();
+  }
+
+  captureWish() {
+    const snapshot = document.createElement('canvas');
+    snapshot.width = 900; snapshot.height = 800;
+    const ctx = snapshot.getContext('2d');
+    ctx.save(); ctx.beginPath(); ctx.ellipse(450, 400, 900 * .322, 900 * .24, 0, 0, Math.PI * 2); ctx.clip();
+    this.drawVideo(ctx, Math.max(900 * .644 / this.video.videoWidth, 900 * .48 / this.video.videoHeight), 450, 400);
+    ctx.restore();
+    ctx.drawImage(this.decorParts, 0, 40, 365, 325, 0, 0, 900, 800);
+    return snapshot.toDataURL('image/png');
   }
 
   drawFilm(radius, zoom, opacity, nickname, gate) {
@@ -184,16 +234,17 @@ export class Renderer {
       const gift = '这份答案送给';
       const giftSize = Math.min(48, w * .057) * scale;
       ctx.font = `400 ${giftSize}px ${serif}`;
-      const giftWidth = ctx.measureText(gift).width;
-      const giftY = cy - Math.min(116, h * .16) * scale;
+      const textX = mix(this.desktopLayout ? w * .66 : cx, cx, zoom);
+      const textY = mix(this.desktopLayout ? h * .72 : cy, cy, zoom);
+      const giftY = textY - Math.min(116, h * .16) * scale;
       const glyph = this.nameGlyph(nickname || '你的名字', this.nicknameSize(nickname, zoom));
       ctx.save();
       const revealWidth = Math.min(1000, w * .94);
-      ctx.beginPath(); ctx.rect(cx - revealWidth / 2, 0, revealWidth * this.introProgress, h); ctx.clip();
+      ctx.beginPath(); ctx.rect(textX - revealWidth / 2, 0, revealWidth * this.introProgress, h); ctx.clip();
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
       ctx.shadowColor = 'rgba(255,255,255,.5)'; ctx.shadowBlur = 4 + this.introPulse * 2;
-      ctx.fillText(gift, cx, giftY);
-      ctx.drawImage(glyph, cx - glyph.width / 2, cy - glyph.height / 2);
+      ctx.fillText(gift, textX, giftY);
+      ctx.drawImage(glyph, textX - glyph.width / 2, textY - glyph.height / 2);
 
       ctx.restore();
     }
@@ -222,16 +273,6 @@ export class Renderer {
     }
     this.nameGlyphKey = key; this.nameGlyphCanvas = dots;
     return dots;
-  }
-
-  drawName(nickname, zoom, opacity, glow) {
-    const { ctx, cx, cy } = this;
-    const glyph = this.nameGlyph(nickname, this.nicknameSize(nickname, zoom));
-    ctx.save(); ctx.globalAlpha = opacity;
-    ctx.shadowColor = `rgba(255, 255, 255, ${.3 + glow * .3})`;
-    ctx.shadowBlur = 4 + glow * this.lightPulse * 12;
-    ctx.drawImage(glyph, cx - glyph.width / 2, cy - glyph.height / 2);
-    ctx.restore();
   }
 
   drawGlass(radius, opacity, glow) {

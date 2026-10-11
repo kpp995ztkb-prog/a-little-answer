@@ -117,3 +117,52 @@ body[data-phase='waiting'] .tracking-panel, body[data-phase='awaiting-eyes'] .tr
 .tracking-panel { bottom: 3dvh; padding: 8px 14px; background: rgba(250,242,247,.72); border-radius: 10px; backdrop-filter: blur(10px); }
 
 .guidance, .tracking-panel { background: transparent; backdrop-filter: none; padding: 0; }
+
+@media (min-width: 651px) {
+  body[data-phase='naming'] #nickname,
+  body[data-phase='naming'] .sphere-name { left: 66%; top: 72dvh; }
+  body[data-phase='naming'] #nickname { width: min(60vw, 660px); }
+}
+
+.guidance, .tracking-panel { display: none; }
+
+.answer {
+  left: 50%; top: calc(var(--center-y) + var(--radius) * .3); transform: translate(-50%, -50%);
+  width: calc(var(--radius) * 2.2); font-family: 'Fusion Pixel', monospace;
+  color: #fff; font-size: clamp(20px, 2.4vw, 40px); line-height: 1.8;
+  text-shadow: 0 0 4px #fff, 0 0 16px rgba(255,255,255,.65), 0 0 32px rgba(255,255,255,.3);
+}
+@media (max-width: 650px) {
+  .answer { font-size: clamp(18px, 4vw, 26px); }
+}
+
+/* Preserve the reference photograph; only the four personal fields are overlaid. */
+.keepsake { position: fixed; inset: 0; display: grid; place-items: center; z-index: 4; background: #eee0e2 url('/art/wish-paper.png') center / cover no-repeat; }
+.wish-card { position: relative; width: min(calc(100vw - 24px), calc((100dvh - 44px) * 736 / 917)); aspect-ratio: 736 / 917; color: #9b7d8a; font-family: 'Songti SC', 'STSong', Georgia, serif; }
+.wish-card::before { content: ''; position: absolute; inset: 0; background: url('/art/wish-collage.png') center / 100% 100% no-repeat; mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent); }
+.wish-name-ticket { position: absolute; left: 51%; top: 23%; width: 30%; height: 9%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff8f6; transform: rotate(-3deg); text-align: center; }
+.wish-name-ticket span { font-size: clamp(8px, 1vw, 12px); letter-spacing: .1em; }
+.wish-name-ticket strong { display: block; margin-top: 5px; font-size: clamp(12px, 1.6vw, 24px); font-weight: 400; overflow-wrap: anywhere; }
+.wish-photo-paper { position: absolute; left: 19%; top: 32%; width: 60%; height: 35%; margin: 0; transform: rotate(5deg); }
+.wish-photo-paper img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.wish-time-stamp { position: absolute; left: 12%; top: 60%; width: 16%; height: 9%; transform: rotate(-7deg); text-align: center; }
+.wish-time-stamp time { display: block; font-size: clamp(8px, .9vw, 12px); line-height: 1.45; white-space: pre-line; }
+.wish-answer-lace { position: absolute; left: 47%; top: 68%; width: 36%; height: 12%; display: flex; flex-direction: column; justify-content: center; transform: rotate(-6deg); text-align: center; }
+.wish-answer-lace > span { font-size: clamp(9px, .9vw, 12px); letter-spacing: .06em; }
+.wish-answer-lace p { margin: 7px 0 0; color: #b58e9c; font-size: clamp(13px, 1.7vw, 23px); line-height: 1.55; text-wrap: balance; font-weight: 600; text-shadow: 0 1px #fff7; }
+@media (min-aspect-ratio: 1/1) {
+  .wish-card { width: min(calc(100vw - 24px), calc((100dvh - 44px) * 16 / 9)); aspect-ratio: 16 / 9; }
+  .wish-card::before { background-image: url('/art/wish-collage-landscape.png'); }
+  .wish-photo-paper { left: 21.5%; top: 19%; width: 44%; height: 59%; transform: rotate(-2deg); }
+  .wish-name-ticket { left: 73%; top: 21%; width: 20%; height: 15%; transform: rotate(4deg); }
+  .wish-name-ticket span { font-size: clamp(10px, 1.2vw, 18px); }
+  .wish-name-ticket strong { font-size: clamp(18px, 2.5vw, 38px); }
+  .wish-time-stamp { left: 6.8%; top: 60%; width: 12%; height: 10%; transform: rotate(-10deg); }
+  .wish-time-stamp time { font-size: clamp(10px, 1.15vw, 18px); }
+  .wish-answer-lace { left: 69%; top: 59%; width: 22%; height: 22%; transform: rotate(-2deg); }
+  .wish-answer-lace > span { font-size: clamp(10px, 1.1vw, 17px); }
+  .wish-answer-lace p { font-size: clamp(18px, 2vw, 32px); }
+}
+body[data-phase='keepsake'] #scene { visibility: hidden; }
+body[data-phase='keepsake'] .again-button { z-index: 5; bottom: 1.5dvh; color: #806570; text-shadow: none; border-color: #bda6af; }
+@media (prefers-reduced-motion: no-preference) { .keepsake { animation: keepsake-in .8s ease both; } @keyframes keepsake-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } } }

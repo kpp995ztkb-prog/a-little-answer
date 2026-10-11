@@ -1,4 +1,4 @@
-export const TIMING = Object.freeze({ hold: 1500, lighting: 1500, open: 400, afterOpen: 3000, reveal: 2000, reset: 1000, stale: 350 });
+export const TIMING = Object.freeze({ hold: 1500, lighting: 1500, open: 400, afterOpen: 3000, reveal: 2000, keepsake: 3000, reset: 1000, stale: 350 });
 
 export class Ritual {
   constructor(selectAnswer) {
@@ -77,6 +77,10 @@ export class Ritual {
       this.phase = 'reading';
       this.phaseAt += TIMING.reveal;
     }
+    if (this.phase === 'reading' && now - this.phaseAt >= TIMING.keepsake) {
+      this.phase = 'keepsake';
+      this.phaseAt += TIMING.keepsake;
+    }
     if (this.phase === 'resetting' && now - this.phaseAt >= TIMING.reset) {
       this.answer = null;
       this.start(now);
@@ -84,7 +88,7 @@ export class Ritual {
   }
 
   reset(now) {
-    if (this.phase !== 'reading') return;
+    if (!['reading', 'keepsake'].includes(this.phase)) return;
     this.clearObservation();
     this.phase = 'resetting';
     this.phaseAt = now;

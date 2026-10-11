@@ -13,11 +13,17 @@ const ritual = new Ritual(chooseAnswer);
 let phase = 'camera', phaseAt = 0, nickname = '', cameraReady = false;
 let trackingState = 'loading', lastSample = null, sampleAt = 0, composing = false;
 let stream = null, previousPhase = '', previousStatus = '';
+let wishPhoto = '', wishTime = null;
 
 const onSample = (sample, now) => {
   lastSample = sample; sampleAt = now;
   if (document.hidden) return;
+  const before = ritual.phase;
   ritual.observe(sample, now);
+  if (before === 'waiting' && ritual.phase === 'lighting') {
+    wishPhoto = renderer.captureWish();
+    wishTime = new Date();
+  }
 };
 const onTrackingStatus = status => { trackingState = status; };
 // Test injection is available only to the development server, never in the build.
@@ -86,7 +92,7 @@ byId('enable-camera').addEventListener('click', enableCamera);
 void enableCamera();
 
 byId('ask-again').addEventListener('click', () => {
-  ritual.reset(performance.now()); lastSample = null; sampleAt = 0;
+  ritual.reset(performance.now()); wishPhoto = ''; wishTime = null; lastSample = null; sampleAt = 0;
 });
 byId('retry-tracking').addEventListener('click', () => { lastSample = null; sampleAt = 0; tracker.init(); });
 window.addEventListener('resize', () => renderer.resize());
@@ -101,14 +107,25 @@ function updateUi(now, glow) {
   if (effectivePhase !== previousPhase) {
     document.body.dataset.phase = effectivePhase;
     byId('guidance').hidden = !['waiting', 'lighting'].includes(effectivePhase);
-    byId('ask-again').hidden = effectivePhase !== 'reading';
-    if (effectivePhase === 'reading') byId('ask-again').focus({ preventScroll: true });
+    byId('ask-again').hidden = effectivePhase !== 'keepsake';
+    if (effectivePhase === 'keepsake') byId('ask-again').focus({ preventScroll: true });
+    byId('keepsake').hidden = effectivePhase !== 'keepsake';
+    if (effectivePhase === 'keepsake') {
+      byId('wish-photo').src = wishPhoto;
+      byId('wish-name').textContent = nickname;
+      byId('wish-answer').textContent = ritual.answer;
+      byId('wish-time').dateTime = wishTime.toISOString();
+      byId('wish-time').textContent = new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      }).format(wishTime).replace(' ', '\n');
+    }
     const visibleAnswer = ['revealing', 'reading', 'resetting'].includes(effectivePhase);
     byId('answer').hidden = !visibleAnswer;
     if (visibleAnswer) byId('answer').textContent = ritual.answer;
     byId('tracking-panel').hidden = !['waiting', 'awaiting-eyes'].includes(effectivePhase);
 
-    const announcements = { waiting: '将双手握合放在胸前，闭上眼睛默想问题。', lighting: '昵称正在点亮，可以放下双手。', 'awaiting-eyes': '准备好时，慢慢睁开眼睛。' };
+    const announcements = { waiting: '将双手握合放在胸前，闭上眼睛默想问题。', lighting: '镜子正在靠近，可以放下双手。', 'awaiting-eyes': '准备好时，慢慢睁开眼睛。' };
     byId('live-announcement').textContent = announcements[effectivePhase] ?? '';
     previousPhase = effectivePhase;
   }
@@ -132,7 +149,7 @@ function updateUi(now, glow) {
 }
 
 function frame(now) {
-  let zoom = 0, filmOpacity = 1, glow = 0;
+  let zoom = 0, filmOpacity = 1, glow = 0, expansion = 0;
   if (phase === 'pullback') {
     zoom = smooth((now - phaseAt) / 3000);
     if (now - phaseAt >= 3000) { phase = 'clearing'; phaseAt += 3000; }
@@ -143,11 +160,17 @@ function frame(now) {
   }
   if (phase === 'ritual') {
     zoom = 1; filmOpacity = 0; ritual.tick(now);
-    if (ritual.phase === 'lighting') glow = smooth((now - ritual.phaseAt) / TIMING.lighting);
-    else if (ritual.phase === 'resetting') glow = 1 - smooth((now - ritual.phaseAt) / TIMING.reset);
-    else if (['awaiting-eyes', 'revealing', 'reading'].includes(ritual.phase)) glow = 1;
+    if (ritual.phase === 'lighting') {
+      const elapsed = now - ritual.phaseAt;
+      glow = smooth(elapsed / 400);
+      expansion = smooth((elapsed - 300) / (TIMING.lighting - 300));
+    }
+    else if (ritual.phase === 'resetting') {
+      expansion = glow = 1 - smooth((now - ritual.phaseAt) / TIMING.reset);
+    }
+    else if (['awaiting-eyes', 'revealing', 'reading', 'keepsake'].includes(ritual.phase)) expansion = glow = 1;
   }
-  renderer.draw({ now, zoom, filmOpacity, nickname: phase === 'camera' ? '' : nickname, glow,
+  renderer.draw({ now, zoom, filmOpacity, nickname: phase === 'camera' ? '' : nickname, glow, expansion,
     hold: phase === 'ritual' ? ritual.holdProgress : 0, phase: ritual.phase, cameraReady });
   updateUi(now, glow);
   if (cameraReady) tracker.pump(video, now, phase === 'ritual' ? ritual.phase : phase);
