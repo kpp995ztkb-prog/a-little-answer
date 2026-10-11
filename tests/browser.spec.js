@@ -17,7 +17,6 @@ async function setup(page) {
     } };
   });
   await page.goto('/');
-  await page.getByRole('button', { name: '开启镜头' }).click();
   await expect(page.getByRole('textbox', { name: '你的昵称' })).toBeVisible();
 }
 
@@ -63,7 +62,9 @@ test('answer stays hidden until open eyes, then reset retains name and changes a
   await expect(page.locator('body')).toHaveAttribute('data-phase', 'lighting');
   await samples(page, 'open', 500);
   await expect(page.locator('#answer')).not.toBeVisible();
-  await expect(page.locator('body')).toHaveAttribute('data-phase', 'reading', { timeout: 5000 });
+  await page.waitForTimeout(2500);
+  await expect(page.locator('#answer')).not.toBeVisible();
+  await expect(page.locator('body')).toHaveAttribute('data-phase', 'reading', { timeout: 8500 });
   const first = await page.locator('#answer').textContent();
   await page.screenshot({ path: 'test-results/answer.png' });
   await page.getByRole('button', { name: '再问一次' }).click();
@@ -74,7 +75,7 @@ test('answer stays hidden until open eyes, then reset retains name and changes a
   await expect(page.locator('body')).toHaveAttribute('data-phase', 'awaiting-eyes', { timeout: 2500 });
   await expect(page.locator('#answer')).not.toBeVisible();
   await samples(page, 'open', 500);
-  await expect(page.locator('body')).toHaveAttribute('data-phase', 'reading', { timeout: 3500 });
+  await expect(page.locator('body')).toHaveAttribute('data-phase', 'reading', { timeout: 7000 });
   expect(await page.locator('#answer').textContent()).not.toBe(first);
 });
 
@@ -82,9 +83,9 @@ test('permission failure leaves a usable retry', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => { throw new DOMException('Denied', 'NotAllowedError'); } });
   });
-  await page.goto('/'); await page.getByRole('button', { name: '开启镜头' }).click();
+  await page.goto('/');
   await expect(page.locator('#camera-error')).toContainText('允许');
-  await expect(page.getByRole('button', { name: '开启镜头' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '重新开启镜头' })).toBeEnabled();
 });
 
 test('the local worker loads all models and processes a real image frame', async ({ page }) => {
@@ -133,29 +134,16 @@ test('IME Enter does not submit and surrounding whitespace does not consume name
   await expect(page.locator('#sphere-name')).toHaveText('ABCDEFGHIJKL');
 });
 
-test('nickname cutout contains clear live-camera pixels while the material covers its surroundings', async ({ page }) => {
-  await setup(page);
+test('nickname uses white luminous lettering after the paper backing is removed', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await setup(page);
   await page.getByRole('textbox').fill('小鹿');
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  const result = await page.evaluate(() => {
-    const scene = document.getElementById('scene'), video = document.getElementById('camera');
-    const expected = document.createElement('canvas'); expected.width = scene.width; expected.height = scene.height;
-    const ctx = expected.getContext('2d');
-    const scale = Math.max(innerWidth / video.videoWidth, innerHeight / video.videoHeight);
-    const dpr = scene.width / innerWidth; ctx.scale(dpr, dpr); ctx.translate(innerWidth / 2, innerHeight / 2); ctx.scale(-1,1);
-    ctx.drawImage(video, -video.videoWidth * scale / 2, -video.videoHeight * scale / 2, video.videoWidth * scale, video.videoHeight * scale);
-    const x = Math.round((innerWidth / 2 - 90) * dpr), y = Math.round((innerHeight * .55 - 48) * dpr);
-    const width = Math.round(180 * dpr), height = Math.round(96 * dpr);
-    const actual = scene.getContext('2d').getImageData(x,y,width,height).data;
-    const original = expected.getContext('2d').getImageData(x,y,width,height).data;
-    let clear = 0, covered = 0;
-    for (let i = 0; i < actual.length; i += 4) {
-      const difference = Math.abs(actual[i]-original[i]) + Math.abs(actual[i+1]-original[i+1]) + Math.abs(actual[i+2]-original[i+2]);
-      if (difference < 5) clear++;
-      if (difference > 40) covered++;
-    }
-    return { clear, covered };
+  const white = await page.evaluate(() => {
+    const scene = document.getElementById('scene'), dpr = scene.width / innerWidth;
+    const pixels = scene.getContext('2d').getImageData(Math.round((innerWidth/2-140)*dpr), Math.round((innerHeight/2-60)*dpr), Math.round(280*dpr), Math.round(120*dpr)).data;
+    let white = 0;
+    for (let i=0;i<pixels.length;i+=4) if (pixels[i]>235 && pixels[i+1]>235 && pixels[i+2]>235) white++;
+    return white;
   });
-  expect(result.clear).toBeGreaterThan(400);
-  expect(result.covered).toBeGreaterThan(4000);
+  expect(white).toBeGreaterThan(100);
 });

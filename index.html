@@ -3,29 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#d9d9d7" />
+    <meta name="theme-color" content="#17171e" />
     <meta name="description" content="把问题留在心里，送给此刻的自己一颗小小的答案。" />
-    <title>一颗答案 · 送给珍贵的你</title>
+    <title>一颗答案 · 送给你</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body data-phase="camera">
     <canvas id="scene" aria-hidden="true"></canvas>
     <video id="camera" autoplay muted playsinline hidden></video>
-    <header class="masthead">
-      <a class="wordmark" href="/" aria-label="一颗答案 首页"><span class="brand-orb" aria-hidden="true"></span>一颗答案<span class="wordmark-en">A LITTLE ANSWER</span></a>
-      <div class="camera-indicator" id="camera-indicator"><span class="status-dot"></span><span id="camera-label">此刻，留给自己</span></div>
-    </header>
     <main>
-      <section id="camera-gate" class="camera-gate" aria-labelledby="gate-title">
-        <p class="eyebrow">A MOMENT, JUST FOR YOU</p>
-        <h1 id="gate-title">留一个问题<br />给此刻的自己</h1>
-        <p class="gate-description">不必说出口。<br />闭上眼，让一颗小小的答案来到你身边。</p>
-        <button id="enable-camera" class="primary-button"><span>开启镜头</span><span aria-hidden="true">↗</span></button>
-        <p class="privacy-note">镜头只在此页面使用，画面不会上传或保存。</p>
+      <section id="camera-gate" class="camera-gate" aria-label="镜头连接" hidden>
         <p id="camera-error" class="error-message" role="alert"></p>
+        <button id="enable-camera" class="primary-button"><span>重新开启镜头</span><span aria-hidden="true">↗</span></button>
       </section>
       <form id="nickname-form" class="nickname-form" hidden autocomplete="off">
-        <h1 class="sr-only">这份答案送给珍贵的</h1>
+        <h1 class="sr-only">这份答案送给</h1>
         <label class="sr-only" for="nickname">你的昵称</label>
         <input id="nickname" name="nickname" type="text" spellcheck="false" />
       </form>
@@ -42,7 +34,6 @@
       </div>
       <p id="live-announcement" class="sr-only" role="status"></p>
     </main>
-    <footer class="footer"><span id="footer-note">把问题留在心里。</span><span class="footer-right">FOR YOUR OWN LITTLE UNIVERSE <span aria-hidden="true">✧</span></span></footer>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

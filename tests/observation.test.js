@@ -53,3 +53,34 @@ test('two separated hands cannot trigger', () => {
   const f = frame(); f.pose[15].x = 0.2; f.pose[16].x = 0.8;
   assert.equal(assessObservation(f).handsTogether, false);
 });
+
+
+test('cropped elbows do not reject clearly visible interlocked wrists and palms', () => {
+  const f = frame(); f.pose[13].visibility = f.pose[14].visibility = 0.1;
+  const result = assessObservation(f);
+  assert.equal(result.handsTogether, true);
+  assert.equal(result.atChest, true);
+});
+
+test('occluded second palm still cannot count as two visible hands', () => {
+  const f = frame(); f.pose[18].visibility = f.pose[20].visibility = 0.1;
+  assert.equal(assessObservation(f).handsTogether, false);
+});
+
+
+test('glasses with asymmetric closed-eye scores are accepted, a wink is rejected', () => {
+  const f = frame(); f.leftBlink = 0.49; f.rightBlink = 0.31;
+  assert.equal(assessObservation(f).eyes, 'closed');
+  f.rightBlink = 0.12;
+  assert.equal(assessObservation(f).eyes, 'unknown');
+});
+
+test('a detected hand corroborates partially occluded interlocked pose landmarks', () => {
+  const f = frame();
+  for (const i of [15,16,17,18,19,20]) f.pose[i].visibility = 0.3;
+  f.hands = [[{ x: 0.5, y: 0.52, visibility: 0 }]];
+  assert.equal(assessObservation(f).handsTogether, true);
+  assert.equal(assessObservation(f).atChest, true);
+  f.pose[16].visibility = 0.1;
+  assert.equal(assessObservation(f).handsTogether, false);
+});

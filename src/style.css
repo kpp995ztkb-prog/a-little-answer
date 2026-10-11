@@ -1,12 +1,13 @@
+@font-face { font-family: 'Fusion Pixel'; src: url('/fonts/fusion-pixel-12px-monospaced-zh_hans.ttf.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
 :root {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  color: oklch(28% 0.026 158);
+  color: oklch(28% 0 0);
   background: oklch(88% 0.002 100);
   font-synthesis: none;
-  --ink: oklch(28% 0.026 158);
+  --ink: oklch(28% 0 0);
   --cream: oklch(96% 0.018 91);
   --gold: oklch(87% 0.096 82);
-  --serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC', Georgia, serif;
+  --serif: 'Fusion Pixel', monospace;
   --center-y: 55vh;
   --radius: 220px;
 }
@@ -34,7 +35,7 @@ h1 { font-family: var(--serif); font-size: clamp(36px, 4.6vw, 58px); font-weight
 .privacy-note { font-size: 10px; letter-spacing: .05em; margin: 20px 0 0; opacity: .65; }
 .error-message { font-size: 12px; line-height: 1.8; max-width: 420px; margin: 15px auto 0; color: oklch(38% .09 31); }
 .nickname-form { position: fixed; inset: 0; pointer-events: none; }
-#nickname { position: absolute; left: 50%; top: var(--center-y); transform: translate(-50%, -50%); width: min(70vw, 660px); height: 110px; border: 0; outline: none; background: transparent; color: transparent; caret-color: var(--ink); font-family: var(--serif); font-size: clamp(46px, 7vw, 84px); text-align: center; pointer-events: auto; }
+#nickname { position: absolute; left: 50%; top: var(--center-y); transform: translate(-50%, -50%); width: min(70vw, 660px); height: 110px; border: 0; outline: none; background: transparent; color: transparent; caret-color: var(--ink); font-family: var(--serif); font-weight: 700; font-size: clamp(46px, 7vw, 84px); text-align: center; pointer-events: auto; }
 #nickname::selection { background: oklch(30% .03 150 / .12); color: transparent; }
 .sphere-name { position: fixed; top: var(--center-y); left: 50%; transform: translate(-50%, -50%); font-family: var(--serif); line-height: 1.4; text-align: center; white-space: nowrap; pointer-events: none; color: transparent; user-select: none; }
 .guidance { position: fixed; top: calc(var(--center-y) - var(--radius) - 104px); left: 50%; transform: translateX(-50%); text-align: center; color: var(--cream); text-shadow: 0 1px 10px oklch(15% .02 150 / .65); transition: opacity 1s; }
@@ -74,3 +75,45 @@ body:not([data-phase='camera']):not([data-phase='naming']) .masthead, body:not([
 @media (prefers-reduced-motion: reduce) {
   button, .guidance { transition: none; }
 }
+
+body[data-phase='camera'], body[data-phase='naming'] { color: #eadfe9; }
+#nickname { caret-color: #fff; }
+.error-message { color: #efd0dc; }
+.primary-button { color: #eadfe9; border-color: rgba(234, 223, 233, .4); background: rgba(255, 255, 255, .06); }
+
+/* Keep the introduction centered with clear space above the larger sphere. */
+.guidance { top: auto; bottom: calc(100dvh - var(--center-y) + var(--radius) + 42px); width: min(92vw, 720px); }
+.guidance p { font-size: clamp(19px, 1.8vw, 26px); line-height: 1.8; margin-top: 14px; white-space: normal; }
+.ritual-mark { font-size: 28px; }
+#nickname, .sphere-name { font-family: 'Bodoni 72', 'Didot', 'Songti SC', Georgia, serif; font-style: italic; }
+@media (max-width: 650px) {
+  .guidance { bottom: calc(100dvh - var(--center-y) + var(--radius) + 30px); }
+  .guidance p { font-size: 17px; }
+  .ritual-mark { font-size: 22px; }
+  .tracking-panel, .again-button { top: calc(var(--center-y) + var(--radius) + 80px); }
+}
+@media (max-height: 650px) and (min-width: 651px) {
+  .guidance { bottom: calc(100dvh - var(--center-y) + var(--radius) + 22px); }
+  .guidance p { font-size: 17px; margin-top: 4px; }
+  .ritual-mark { font-size: 20px; }
+}
+
+#nickname { caret-color: transparent; }
+
+body[data-phase='waiting'] .guidance, body[data-phase='lighting'] .guidance,
+body[data-phase='waiting'] .tracking-panel, body[data-phase='awaiting-eyes'] .tracking-panel,
+.answer, .again-button { color: #51454c; text-shadow: 0 1px 4px rgba(255,255,255,.9); }
+.guidance { bottom: auto; top: 3.5dvh; }
+.guidance p { font-size: clamp(16px, 1.5vw, 22px); }
+.tracking-panel, .again-button { top: auto; bottom: 4dvh; }
+.answer { top: calc(var(--center-y) + 48px); }
+@media (max-width:650px), (max-height:650px) {
+  .guidance { bottom:auto; top:2dvh; }
+  .guidance p { font-size:14px; line-height:1.7; }
+  .tracking-panel, .again-button { top:auto; bottom:3dvh; }
+}
+
+.guidance { top: 3dvh; padding: 8px 18px; background: rgba(250,242,247,.72); border-radius: 14px; backdrop-filter: blur(10px); }
+.tracking-panel { bottom: 3dvh; padding: 8px 14px; background: rgba(250,242,247,.72); border-radius: 10px; backdrop-filter: blur(10px); }
+
+.guidance, .tracking-panel { background: transparent; backdrop-filter: none; padding: 0; }

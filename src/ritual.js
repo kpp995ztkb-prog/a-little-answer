@@ -1,4 +1,4 @@
-export const TIMING = Object.freeze({ hold: 1500, lighting: 1500, open: 400, reveal: 2000, reset: 1000, stale: 350 });
+export const TIMING = Object.freeze({ hold: 1500, lighting: 1500, open: 400, afterOpen: 3000, reveal: 2000, reset: 1000, stale: 350 });
 
 export class Ritual {
   constructor(selectAnswer) {
@@ -11,10 +11,12 @@ export class Ritual {
 
   clearObservation() {
     this.holdAt = null;
+    this.lastValidHold = null;
     this.openAt = null;
     this.lastObservation = null;
     this.holdProgress = 0;
     this.eyesOpened = false;
+    this.eyesOpenedAt = null;
   }
 
   start(now) {
@@ -32,7 +34,13 @@ export class Ritual {
     this.lastObservation = now;
     if (this.phase === 'waiting') {
       const valid = sample.faceValid && sample.eyes === 'closed' && sample.handsTogether && sample.atChest;
-      this.holdAt = valid ? (this.holdAt ?? now) : null;
+      if (valid) { this.holdAt ??= now; this.lastValidHold = now; }
+      else {
+        const briefOcclusion = sample.faceValid && sample.eyes === 'closed' && sample.handsUncertain &&
+          this.lastValidHold !== null && now - this.lastValidHold <= 250;
+        if (briefOcclusion && this.holdAt !== null) return;
+        this.holdAt = null; this.lastValidHold = null;
+      }
       this.holdProgress = this.holdAt === null ? 0 : Math.min(1, (now - this.holdAt) / TIMING.hold);
       if (this.holdProgress === 1) {
         this.answer = this.selectAnswer(this.previousAnswer);
@@ -44,7 +52,9 @@ export class Ritual {
     } else if (!this.eyesOpened) {
       const open = sample.faceValid && sample.eyes === 'open';
       this.openAt = open ? (this.openAt ?? now) : null;
-      if (this.openAt !== null && now - this.openAt >= TIMING.open) this.eyesOpened = true;
+      if (this.openAt !== null && now - this.openAt >= TIMING.open) {
+        this.eyesOpened = true; this.eyesOpenedAt = now;
+      }
     }
     this.tick(now);
   }
@@ -57,11 +67,11 @@ export class Ritual {
     }
     if (this.phase === 'lighting' && now - this.phaseAt >= TIMING.lighting) {
       this.phaseAt += TIMING.lighting;
-      this.phase = this.eyesOpened ? 'revealing' : 'awaiting-eyes';
+      this.phase = 'awaiting-eyes';
     }
-    if (this.phase === 'awaiting-eyes' && this.eyesOpened) {
+    if (this.phase === 'awaiting-eyes' && this.eyesOpened && now - this.eyesOpenedAt >= TIMING.afterOpen) {
       this.phase = 'revealing';
-      this.phaseAt = now;
+      this.phaseAt = Math.max(this.phaseAt, this.eyesOpenedAt + TIMING.afterOpen);
     }
     if (this.phase === 'revealing' && now - this.phaseAt >= TIMING.reveal) {
       this.phase = 'reading';

@@ -1,7 +1,8 @@
 const clamp = value => Math.min(1, Math.max(0, value));
 export const smooth = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
-const serif = '"Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif';
+const nameFont = '"Bodoni 72", "Didot", "Songti SC", Georgia, serif';
+const serif = '"Fusion Pixel", monospace';
 
 export class Renderer {
   constructor(canvas, video) {
@@ -12,10 +13,40 @@ export class Renderer {
     this.lensCtx = this.lens.getContext('2d', { alpha: false });
     this.film = document.createElement('canvas');
     this.filmCtx = this.film.getContext('2d');
+    this.grain = document.createElement('canvas');
+    this.grain.width = this.grain.height = 256;
+    const grainCtx = this.grain.getContext('2d');
+    const pixels = grainCtx.createImageData(256, 256);
+    let seed = 37;
+    for (let i = 0; i < pixels.data.length; i += 4) {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      const shade = seed >>> 24;
+      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = shade;
+      pixels.data[i + 3] = 5;
+    }
+    grainCtx.putImageData(pixels, 0, 0);
     this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.charge = 0;
     this.lastFrame = 0;
     this.resize();
+    const parts = new Image();
+    parts.onload = () => { this.decorParts = parts; };
+    parts.src = `${import.meta.env.BASE_URL}art/decor-atlas.png`;
+    const wingImage = new Image();
+    wingImage.onload = () => {
+      const sheet = document.createElement('canvas');
+      sheet.width = wingImage.width; sheet.height = wingImage.height;
+      const context = sheet.getContext('2d'); context.drawImage(wingImage, 0, 0);
+      const pixels = context.getImageData(0, 0, sheet.width, sheet.height);
+      // Render the supplied dotted artwork in white, excluding its paper background.
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const ink = 255 - (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
+        pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = 255;
+        pixels.data[i + 3] = ink > 35 ? Math.min(255, ink * 1.25) : 0;
+      }
+      context.putImageData(pixels, 0, 0); this.wingArtwork = sheet;
+    };
+    wingImage.src = `${import.meta.env.BASE_URL}art/wing-reference.png`;
   }
 
   resize() {
@@ -25,16 +56,17 @@ export class Renderer {
     this.canvas.height = Math.round(this.height * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     for (const surface of [this.lens, this.film]) { surface.width = this.width; surface.height = this.height; }
-    this.cx = this.width / 2; this.cy = this.height * 0.55;
-    this.finalRadius = Math.min(245, this.width * (this.width < 650 ? 0.38 : 0.24), this.height * 0.225);
+    this.cx = this.width / 2; this.cy = this.height * 0.5;
+    this.frameScale = Math.min(this.width * .52 / 436, this.height * .44 / 302);
+    this.finalRadius = 151 * this.frameScale;
     this.initialRadius = Math.hypot(this.width, this.height) * 0.68;
     document.documentElement.style.setProperty('--center-y', `${this.cy}px`);
     document.documentElement.style.setProperty('--radius', `${this.finalRadius}px`);
   }
 
   nicknameSize(nickname, zoom) {
-    const target = mix(Math.min(84, this.width * 0.075), Math.min(36, this.finalRadius * 0.19), zoom);
-    this.ctx.font = `italic ${target}px ${serif}`;
+    const target = mix(Math.min(108, this.width * 0.095), Math.min(60, this.finalRadius * 0.25), zoom);
+    this.ctx.font = `italic 600 ${target}px ${nameFont}`;
     const available = mix(Math.min(660, this.width * 0.78), this.finalRadius * 1.38, zoom);
     return Math.min(target, target * available / Math.max(1, this.ctx.measureText(nickname || '你的名字').width));
   }
@@ -49,18 +81,26 @@ export class Renderer {
 
   draw({ now, zoom, filmOpacity, nickname, glow, hold, phase, cameraReady }) {
     const { ctx, width: w, height: h, cx, cy } = this;
+    if (cameraReady && !this.wasCameraReady) this.introAt = now;
+    this.wasCameraReady = cameraReady;
+    this.introProgress = this.reducedMotion ? 1 : smooth((now - (this.introAt ?? now)) / 3200);
+    this.introPulse = this.reducedMotion ? 0.5 : 0.5 + Math.sin(now / 1800) * 0.5;
+    this.lightPulse = this.reducedMotion ? 1 : .75 + .25 * Math.sin(now / 1050);
     const radius = mix(this.initialRadius, this.finalRadius, zoom);
     const dt = Math.min(100, now - (this.lastFrame || now)); this.lastFrame = now;
     this.charge += (hold - this.charge) * (1 - Math.exp(-dt / 200));
-    ctx.fillStyle = '#d9d9d7'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#17171e'; ctx.fillRect(0, 0, w, h);
     if (cameraReady) {
       const backgroundScale = Math.max(w / this.video.videoWidth, h / this.video.videoHeight);
-      this.drawVideo(ctx, backgroundScale, w / 2, h / 2);
+      ctx.save(); ctx.filter = 'blur(20px) saturate(1.15)';
+      this.drawVideo(ctx, backgroundScale * 1.08, w / 2, h / 2); ctx.restore();
+      ctx.fillStyle = 'rgba(255, 255, 255, .24)'; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = ctx.createPattern(this.grain, 'repeat'); ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = `rgba(17, 24, 21, ${0.57 * glow})`; ctx.fillRect(0, 0, w, h);
       this.lensCtx.fillStyle = '#999997'; this.lensCtx.fillRect(0, 0, w, h);
       const lensScale = mix(backgroundScale, this.finalRadius * 2 / this.video.videoHeight, zoom);
       this.drawVideo(this.lensCtx, lensScale, cx, mix(h / 2, cy, zoom));
-      this.drawBase(radius, zoom, glow);
+      this.drawWings(radius, zoom, glow);
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.clip();
       if (zoom < 0.6 || radius > h * 0.55) ctx.drawImage(this.lens, 0, 0);
       else {
@@ -82,53 +122,128 @@ export class Renderer {
     }
     if (filmOpacity > 0) this.drawFilm(radius, zoom, filmOpacity, nickname, !cameraReady);
     if (nickname && cameraReady && filmOpacity < 1) this.drawName(nickname, zoom, 1 - filmOpacity, glow);
+    if (cameraReady && zoom > 0 && this.decorParts) this.drawFramedScene(zoom, nickname, glow);
     return { radius, nameSize: this.nicknameSize(nickname, zoom) };
+  }
+
+  drawFramedScene(opacity, nickname, glow) {
+    const { ctx, width: w, height: h, cx, cy } = this;
+    if (!this.decorParts) return;
+    ctx.save(); ctx.globalAlpha = opacity;
+    ctx.fillStyle = '#f7eff4'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(196,171,186,.22)';
+    for (let y=14;y<h;y+=24) for(let x=14;x<w;x+=24) {
+      ctx.beginPath(); ctx.arc(x,y,1.4,0,Math.PI*2); ctx.fill();
+    }
+    // Each atlas cell contains one complete object, including transparent padding.
+    // Never clip a decoration to an ellipse or hand-drawn polygon.
+    const art = this.decorParts;
+    const regions = [
+      [0,40,365,325], [430,0,240,398], [720,45,365,340], [1080,65,368,305],
+      [20,400,335,330], [430,420,235,310], [730,425,350,310], [1080,475,368,235],
+      [0,760,395,320], [395,755,335,315],
+    ];
+    const tile = (index,x,y,size) => {
+      const [sx,sy,sw,sh] = regions[index];
+      const ratio = Math.min(size/sw,size/sh);
+      ctx.drawImage(art,sx,sy,sw,sh,x+(size-sw*ratio)/2,y+(size-sh*ratio)/2,sw*ratio,sh*ratio);
+    };
+    const size = Math.min(w * .74, h * .88);
+    const frameX = cx - size * .5, frameY = cy - size * .5;
+    const rx = size * .322, ry = size * .24;
+    ctx.save(); ctx.beginPath(); ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); ctx.clip();
+    this.drawVideo(ctx, Math.max(rx*2/this.video.videoWidth,ry*2/this.video.videoHeight),cx,cy);
+    ctx.restore();
+    ctx.save(); ctx.shadowColor = 'rgba(94,71,80,.16)'; ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3; tile(0, frameX, frameY, size); ctx.restore();
+    const side = Math.min(w * .17, h * .22, 190);
+    const left = Math.max(8, cx - size * .49 - side);
+    const right = Math.min(w-side-8, cx + size * .49);
+    tile(1,left,h*.19,side);
+    tile(2,cx-size*.58,h*.12,side*.8);
+    tile(3,right,h*.16,side);
+    tile(4,right,h*.39,side);
+    tile(5,left,h*.58,side*.8);
+    tile(6,cx-size*.53,h*.77,side*.8);
+    tile(7,cx-size*.32,h*.76,side*1.25);
+    tile(8,right,h*.66,side);
+    tile(9,cx+size*.32,h*.80,side*.8);
+    if (glow > 0) {
+      ctx.save(); ctx.shadowColor = '#fff'; ctx.shadowBlur = 18*this.lightPulse;
+      ctx.globalAlpha *= glow*this.lightPulse*.4;
+      tile(0,frameX,frameY,size); ctx.restore();
+    }
+    this.drawName(nickname,1,1,glow); ctx.restore();
   }
 
   drawFilm(radius, zoom, opacity, nickname, gate) {
     const { filmCtx: ctx, width: w, height: h, cx, cy } = this;
     ctx.clearRect(0, 0, w, h);
-    // A neutral translucent film lets the live camera show through.
-    ctx.fillStyle = 'rgba(245, 245, 245, .42)'; ctx.fillRect(0, 0, w, h);
     if (!gate) {
-      ctx.save(); ctx.globalCompositeOperation = 'destination-out';
-      ctx.fillStyle = '#f5f2e8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const surfaceScale = radius / this.initialRadius;
-      const gift = '这份答案送给珍贵的';
-      let giftSize = Math.min(34, w * 0.043);
-      ctx.font = `${giftSize}px ${serif}`;
-      giftSize *= Math.min(1, w * 0.84 / ctx.measureText(gift).width);
-      ctx.font = `${giftSize * surfaceScale}px ${serif}`;
-      ctx.fillText(gift, cx, cy - Math.min(123, h * 0.17) * surfaceScale);
-      const nameSize = this.nicknameSize(nickname, zoom);
-      ctx.font = `italic ${nameSize}px ${serif}`;
-      ctx.globalAlpha = nickname ? 1 : 0.43;
-      ctx.fillText(nickname || '你的名字', cx, cy);
+      const scale = radius / this.initialRadius;
+      const gift = '这份答案送给';
+      const giftSize = Math.min(48, w * .057) * scale;
+      ctx.font = `400 ${giftSize}px ${serif}`;
+      const giftWidth = ctx.measureText(gift).width;
+      const giftY = cy - Math.min(116, h * .16) * scale;
+      const glyph = this.nameGlyph(nickname || '你的名字', this.nicknameSize(nickname, zoom));
+      ctx.save();
+      const revealWidth = Math.min(1000, w * .94);
+      ctx.beginPath(); ctx.rect(cx - revealWidth / 2, 0, revealWidth * this.introProgress, h); ctx.clip();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(255,255,255,.5)'; ctx.shadowBlur = 4 + this.introPulse * 2;
+      ctx.fillText(gift, cx, giftY);
+      ctx.drawImage(glyph, cx - glyph.width / 2, cy - glyph.height / 2);
+
       ctx.restore();
-      ctx.strokeStyle = 'rgba(55, 55, 55, .38)'; ctx.lineWidth = 0.7;
-      const lineWidth = Math.min(450, w * 0.58) * surfaceScale;
-      ctx.beginPath(); ctx.moveTo(cx - lineWidth / 2, cy + 52 * surfaceScale); ctx.lineTo(cx + lineWidth / 2, cy + 52 * surfaceScale); ctx.stroke();
     }
     this.ctx.save(); this.ctx.globalAlpha = opacity;
     this.ctx.beginPath(); this.ctx.arc(cx, cy, radius, 0, Math.PI * 2); this.ctx.clip();
     this.ctx.drawImage(this.film, 0, 0); this.ctx.restore();
   }
 
+  nameGlyph(text, size) {
+    const key = `${text}:${Math.round(size)}`;
+    if (this.nameGlyphKey === key) return this.nameGlyphCanvas;
+    const mask = document.createElement('canvas');
+    const m = mask.getContext('2d');
+    m.font = `italic 600 ${size}px ${nameFont}`;
+    mask.width = Math.ceil(m.measureText(text).width + size * .5);
+    mask.height = Math.ceil(size * 1.65);
+    m.font = `italic 600 ${size}px ${nameFont}`;
+    m.fillStyle = '#fff'; m.textAlign = 'center'; m.textBaseline = 'middle';
+    m.fillText(text, mask.width / 2, mask.height / 2);
+    const pixels = m.getImageData(0, 0, mask.width, mask.height).data;
+    const dots = document.createElement('canvas'); dots.width = mask.width; dots.height = mask.height;
+    const d = dots.getContext('2d'); d.fillStyle = '#fff';
+    const step = Math.max(2, Math.round(size / 22)), dot = Math.max(1, step * .66);
+    for (let y = 0; y < mask.height; y += step) for (let x = 0; x < mask.width; x += step) {
+      if (pixels[(y * mask.width + x) * 4 + 3] > 80) d.fillRect(x, y, dot, dot);
+    }
+    this.nameGlyphKey = key; this.nameGlyphCanvas = dots;
+    return dots;
+  }
+
   drawName(nickname, zoom, opacity, glow) {
     const { ctx, cx, cy } = this;
-    ctx.save(); ctx.globalAlpha = opacity; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `italic ${this.nicknameSize(nickname, zoom)}px ${serif}`;
-    ctx.fillStyle = `rgb(${Math.round(mix(241, 255, glow))}, ${Math.round(mix(238, 219, glow))}, ${Math.round(mix(222, 149, glow))})`;
-    ctx.shadowColor = glow > 0.01 ? `rgba(245, 186, 77, ${glow * 0.8})` : 'rgba(21, 31, 26, .75)';
-    ctx.shadowBlur = mix(3, 15, glow); ctx.shadowOffsetY = 0;
-    ctx.fillText(nickname, cx, cy);
-    if (glow > 0) { ctx.shadowBlur = 3; ctx.fillText(nickname, cx, cy); }
+    const glyph = this.nameGlyph(nickname, this.nicknameSize(nickname, zoom));
+    ctx.save(); ctx.globalAlpha = opacity;
+    ctx.shadowColor = `rgba(255, 255, 255, ${.3 + glow * .3})`;
+    ctx.shadowBlur = 4 + glow * this.lightPulse * 12;
+    ctx.drawImage(glyph, cx - glyph.width / 2, cy - glyph.height / 2);
     ctx.restore();
   }
 
   drawGlass(radius, opacity, glow) {
     const { ctx, cx, cy } = this;
     ctx.save(); ctx.globalAlpha = opacity;
+    if (glow > 0) {
+      const halo = ctx.createRadialGradient(cx, cy, radius * .88, cx, cy, radius * 1.16);
+      halo.addColorStop(0, 'rgba(255,255,255,0)');
+      halo.addColorStop(.45, `rgba(255,255,255,${glow * this.lightPulse * .16})`);
+      halo.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = halo; ctx.fillRect(cx - radius * 1.2, cy - radius * 1.2, radius * 2.4, radius * 2.4);
+    }
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     const body = ctx.createRadialGradient(cx - radius * 0.2, cy - radius * 0.2, radius * 0.55, cx, cy, radius);
     body.addColorStop(0, 'rgba(236, 244, 235, 0)');
@@ -151,39 +266,28 @@ export class Renderer {
     highlight.addColorStop(0, 'rgba(248, 250, 237, .66)'); highlight.addColorStop(1, 'rgba(248, 250, 237, 0)');
     ctx.fillStyle = highlight; ctx.scale(0.58, 1); ctx.beginPath(); ctx.arc(0, 0, radius * 0.16, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     if (glow > 0 || this.charge > 0.01) {
-      ctx.shadowColor = '#edc57e'; ctx.shadowBlur = radius * 0.07;
-      arc(0, Math.PI * 2, `rgba(248, 210, 139, ${glow * 0.34 + this.charge * 0.28})`, 1.7);
+      ctx.shadowColor = '#ffffff'; ctx.shadowBlur = radius * 0.07 * this.lightPulse;
+      arc(0, Math.PI * 2, `rgba(255, 255, 255, ${glow * this.lightPulse * 0.5 + this.charge * 0.28})`, 1.7);
     }
     ctx.restore();
   }
 
-  drawBase(radius, opacity, glow) {
+  drawWings(radius, opacity, glow) {
+    if (!this.wingArtwork) return;
     const { ctx, cx, cy } = this;
-    const y = cy + radius * 0.91, halfWidth = radius * 0.68;
-    ctx.save(); ctx.globalAlpha = opacity;
-    const shadow = ctx.createRadialGradient(cx, y + radius * 0.32, 0, cx, y + radius * 0.32, radius * 0.9);
-    shadow.addColorStop(0, 'rgba(10, 17, 14, .5)'); shadow.addColorStop(1, 'rgba(10, 17, 14, 0)');
-    ctx.save(); ctx.translate(cx, y + radius * 0.31); ctx.scale(1, 0.22); ctx.fillStyle = shadow;
-    ctx.fillRect(-radius, -radius, radius * 2, radius * 2); ctx.restore();
-    const block = (top, height, width) => {
-      const gradient = ctx.createLinearGradient(cx - width, top, cx + width, top + height);
-      gradient.addColorStop(0, '#211e1b'); gradient.addColorStop(0.24, '#53443b');
-      gradient.addColorStop(0.43, '#282520'); gradient.addColorStop(0.75, '#171c19'); gradient.addColorStop(1, '#3e332e');
-      ctx.fillStyle = gradient;
-      ctx.beginPath(); ctx.moveTo(cx - width, top); ctx.bezierCurveTo(cx - width * 1.04, top + height, cx - width, top + height, cx, top + height * 1.12);
-      ctx.bezierCurveTo(cx + width, top + height, cx + width * 1.04, top + height, cx + width, top);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx, top, width, radius * 0.075, 0, 0, Math.PI * 2);
-      const ring = ctx.createLinearGradient(cx, top - radius * 0.08, cx, top + radius * 0.08);
-      ring.addColorStop(0, '#8b8170'); ring.addColorStop(0.24, '#453c32'); ring.addColorStop(0.65, '#141b18'); ring.addColorStop(1, '#736351');
-      ctx.fillStyle = ring; ctx.fill(); ctx.strokeStyle = 'rgba(233, 220, 189, .25)'; ctx.lineWidth = 0.8; ctx.stroke();
-    };
-    block(y + radius * 0.20, radius * 0.13, halfWidth * 1.07);
-    block(y + radius * 0.12, radius * 0.13, halfWidth * 0.99);
-    block(y + radius * 0.02, radius * 0.15, halfWidth * 0.87);
-    ctx.beginPath(); ctx.ellipse(cx, y + radius * 0.025, halfWidth * 0.85, radius * 0.063, 0, 0, Math.PI);
-    ctx.strokeStyle = `rgba(254, 215, 139, ${0.18 + glow * 0.7})`; ctx.lineWidth = 1.4;
-    ctx.shadowColor = '#edc176'; ctx.shadowBlur = glow * 15; ctx.stroke(); ctx.restore();
+    const gap = Math.max(24, radius * .18);
+    const wingWidth = Math.min(radius * .9, this.width / 2 - radius - gap - 18);
+    if (wingWidth < 18) return;
+    const wingHeight = wingWidth * 237 / 324;
+    const image = this.wingArtwork, sx = image.width / 1066, sy = image.height / 310;
+    ctx.save(); ctx.globalAlpha = opacity * (.86 + glow * this.lightPulse * .14);
+    ctx.shadowColor = '#fff'; ctx.shadowBlur = glow * this.lightPulse * 4;
+    // Preserve the reference's asymmetric dot clusters and curled feather contours.
+    ctx.drawImage(image, 10 * sx, 58 * sy, 324 * sx, 237 * sy,
+      cx - radius - gap - wingWidth, cy - wingHeight / 2, wingWidth, wingHeight);
+    ctx.drawImage(image, 746 * sx, 60 * sy, 314 * sx, 237 * sy,
+      cx + radius + gap, cy - wingHeight / 2, wingWidth, wingHeight);
+    ctx.restore();
   }
 
   drawAtmosphere(radius, glow, now, phase) {

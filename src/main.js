@@ -47,9 +47,10 @@ byId('nickname-form').addEventListener('submit', event => {
   byId('nickname-form').hidden = true;
 });
 
-byId('enable-camera').addEventListener('click', async () => {
+async function enableCamera() {
   const button = byId('enable-camera'); button.disabled = true;
   byId('camera-error').textContent = '';
+  byId('camera-gate').hidden = true;
   try {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('UNSUPPORTED');
     stream = await navigator.mediaDevices.getUserMedia({
@@ -58,7 +59,8 @@ byId('enable-camera').addEventListener('click', async () => {
     video.srcObject = stream; await video.play();
     cameraReady = true; phase = 'naming'; phaseAt = performance.now();
     byId('camera-gate').hidden = true; byId('nickname-form').hidden = false;
-    byId('camera-label').textContent = '镜头已连接 · 仅本地';
+    await document.fonts.load('48px "Fusion Pixel"');
+    renderer.introAt = performance.now();
     input.focus();
     tracker.init();
     for (const track of stream.getVideoTracks()) track.addEventListener('ended', () => {
@@ -66,7 +68,6 @@ byId('enable-camera').addEventListener('click', async () => {
       phase = 'camera'; byId('camera-gate').hidden = false;
       byId('nickname-form').hidden = true;
       byId('camera-error').textContent = '镜头已断开，请重新开启镜头。';
-      byId('camera-label').textContent = '镜头已断开';
     });
   } catch (error) {
     stream?.getTracks().forEach(track => track.stop()); stream = null;
@@ -78,8 +79,11 @@ byId('enable-camera').addEventListener('click', async () => {
     byId('camera-error').textContent = messages[error.name] || (error.message === 'UNSUPPORTED'
       ? '请使用支持摄像头的电脑浏览器，并通过 localhost 或 HTTPS 打开。'
       : '镜头连接没有成功，请检查摄像头后重试。');
+    byId('camera-gate').hidden = false;
   } finally { button.disabled = false; }
-});
+}
+byId('enable-camera').addEventListener('click', enableCamera);
+void enableCamera();
 
 byId('ask-again').addEventListener('click', () => {
   ritual.reset(performance.now()); lastSample = null; sampleAt = 0;
@@ -103,8 +107,7 @@ function updateUi(now, glow) {
     byId('answer').hidden = !visibleAnswer;
     if (visibleAnswer) byId('answer').textContent = ritual.answer;
     byId('tracking-panel').hidden = !['waiting', 'awaiting-eyes'].includes(effectivePhase);
-    byId('footer-note').textContent = ['lighting', 'awaiting-eyes', 'revealing', 'reading'].includes(effectivePhase)
-      ? '这一刻，只属于你。' : '把问题留在心里。';
+
     const announcements = { waiting: '将双手握合放在胸前，闭上眼睛默想问题。', lighting: '昵称正在点亮，可以放下双手。', 'awaiting-eyes': '准备好时，慢慢睁开眼睛。' };
     byId('live-announcement').textContent = announcements[effectivePhase] ?? '';
     previousPhase = effectivePhase;
@@ -116,10 +119,13 @@ function updateUi(now, glow) {
   byId('answer').style.opacity = revealed;
   const status = trackingState === 'error' ? '识别暂时没有连接成功，请重试。'
     : trackingState === 'loading' ? '正在准备识别，请稍等片刻。'
-      : effectivePhase === 'awaiting-eyes' ? '准备好时，慢慢睁开眼睛。'
+      : effectivePhase === 'awaiting-eyes' ? (ritual.eyesOpened ? '答案正在来到你身边。' : '准备好时，慢慢睁开眼睛。')
         : !lastSample?.faceValid || now - sampleAt > 350 ? '请让脸和双手都进入镜头。'
           : ritual.holdProgress > 0 ? '就这样，停留片刻。'
-            : '双手在胸前靠近，轻轻闭上眼睛。';
+            : !lastSample.handsTogether ? '还没看清双手，请将双手握合并放进镜头。'
+              : !lastSample.atChest ? '已看到双手，请将它们放在胸前。'
+                : lastSample.eyes !== 'closed' ? '已看到双手握合，请轻轻闭眼。'
+                  : '就这样，停留片刻。';
   if (status !== previousStatus) { byId('tracking-status').textContent = status; previousStatus = status; }
   byId('retry-tracking').hidden = trackingState !== 'error';
   byId('sphere-name').style.fontSize = `${renderer.nicknameSize(nickname, phase === 'naming' ? 0 : 1)}px`;

@@ -49,12 +49,14 @@ test('putting hands down does not cancel the lighting', () => {
   r.tick(3000); assert.equal(r.phase, 'awaiting-eyes');
 });
 
-test('opening eyes early is remembered but answer waits for lighting', () => {
+test('opening eyes early is remembered and reveal waits three seconds', () => {
   const r = lit(); hold(r, 1600, 2000, open);
   assert.equal(r.phase, 'lighting'); assert.equal(r.eyesOpened, true);
   r.tick(2999); assert.equal(r.phase, 'lighting');
-  r.tick(3000); assert.equal(r.phase, 'revealing');
-  r.tick(5000); assert.equal(r.phase, 'reading');
+  r.tick(3000); assert.equal(r.phase, 'awaiting-eyes');
+  r.tick(4999); assert.equal(r.phase, 'awaiting-eyes');
+  r.tick(5000); assert.equal(r.phase, 'revealing');
+  r.tick(7000); assert.equal(r.phase, 'reading');
 });
 
 test('closed eyes keep the answer hidden indefinitely', () => {
@@ -67,19 +69,31 @@ test('lost face does not count as open and breaks eye timing', () => {
   hold(r, 3100, 3300, open);
   r.observe({ ...open, faceValid: false, eyes: 'unknown' }, 3400);
   hold(r, 3500, 3800, open); assert.equal(r.phase, 'awaiting-eyes');
-  r.observe(open, 3900); assert.equal(r.phase, 'revealing');
+  r.observe(open, 3900); assert.equal(r.phase, 'awaiting-eyes');
+  r.tick(6899); assert.equal(r.phase, 'awaiting-eyes');
+  r.tick(6900); assert.equal(r.phase, 'revealing');
 });
 
 test('reset clears trigger and eye history while retaining previous answer', () => {
-  const r = lit(); hold(r, 1600, 2000, open); r.tick(5000);
-  r.reset(5100); assert.equal(r.phase, 'resetting'); assert.equal(r.eyesOpened, false);
-  r.tick(6100); assert.equal(r.phase, 'waiting'); assert.equal(r.answer, null);
+  const r = lit(); hold(r, 1600, 2000, open); r.tick(7000);
+  r.reset(7100); assert.equal(r.phase, 'resetting'); assert.equal(r.eyesOpened, false);
+  r.tick(8100); assert.equal(r.phase, 'waiting'); assert.equal(r.answer, null);
   assert.equal(r.previousAnswer, '一条答案');
-  hold(r, 6200, 7700); assert.equal(r.phase, 'lighting');
+  hold(r, 8200, 9700); assert.equal(r.phase, 'lighting');
 });
 
 test('reset ignores gestures until the visual reset finishes', () => {
-  const r = lit(); hold(r, 1600, 2000, open); r.tick(5000); r.reset(5100);
-  hold(r, 5100, 6000); assert.equal(r.phase, 'resetting');
-  r.tick(6100); hold(r, 6200, 7600); assert.equal(r.phase, 'waiting');
+  const r = lit(); hold(r, 1600, 2000, open); r.tick(7000); r.reset(7100);
+  hold(r, 7100, 8000); assert.equal(r.phase, 'resetting');
+  r.tick(8100); hold(r, 8200, 9600); assert.equal(r.phase, 'waiting');
+});
+
+
+test('brief corroborated hand occlusion preserves hold but sustained loss restarts it', () => {
+  const r = waiting(); hold(r, 0, 1000);
+  const uncertain = { ...closed, handsTogether: false, handsUncertain: true };
+  r.observe(uncertain, 1100); r.observe(uncertain, 1200);
+  hold(r, 1300, 1500); assert.equal(r.phase, 'lighting');
+  const other = waiting(); hold(other, 0, 1000); hold(other, 1100, 1400, uncertain);
+  hold(other, 1500, 2800); assert.equal(other.phase, 'waiting');
 });
