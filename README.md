@@ -1,4 +1,6 @@
-# 答案之镜
+# 答案之镜 · A Little Answer
+
+一个用实时摄像头和身体动作完成许愿、获得答案并留下纪念卡的互动网页。
 
 [![在线体验 · 答案之镜](https://raw.githubusercontent.com/kpp995ztkb-prog/a-little-answer/main/docs/images/try-now.svg)](https://kpp995ztkb-prog.github.io/a-little-answer/)
 
@@ -9,7 +11,26 @@
 [联系作者](mailto:elenadai0524@gmail.com)
 
 
-电脑浏览器里的实时摄像头许愿镜体验。输入昵称后，实时画面缩小呈现白色镜框和粉色装饰背景。胸前双手合拢与闭眼保持 1.5 秒后，镜子轻微放大，装饰物缓慢转动并上下浮动；稳定睁眼 0.4 秒确认后等待 3 秒，白色发光答案在镜子里浮现。答案完整显示 3 秒后生成许愿纪念卡，包含闭眼瞬间的镜框截图、昵称、许愿时间和答案。电脑屏幕使用 16:9 横版拼贴，竖屏使用竖版。内置 60 条答案，再次提问保留昵称并排除上一条答案。
+## 如何体验
+
+1. 用电脑 Chrome 或 Edge 打开[在线体验](https://kpp995ztkb-prog.github.io/a-little-answer/)，允许摄像头访问。
+2. 输入名字，按 Enter，实时画面缩小进入白色镜框。
+3. 双手合拢或交握放在胸前，闭眼默想一个问题，保持约 1.5 秒。
+4. 准备好时睁眼，答案会在镜子里浮现；完整显示 3 秒后出现专属纪念卡。
+5. 点击「再问一次」继续，名字会保留，答案不会与上次重复。
+
+首次打开需要加载本地识别模型。脸、肩膀和双手需要进入镜头；手机仅做布局适配，尚未实机验证。
+
+## 功能与隐私
+
+- 白色镜框、粉色拼贴与缓慢浮动的装饰物，闭眼许愿时镜子轻微放大。
+- 60 条随机答案，白色发光文字呈现。
+- 纪念卡包含闭眼瞬间的截图、名字、许愿时间和答案；电脑横版、竖屏竖版。
+- 动作识别在浏览器本地完成，不上传摄像头画面；截图仅保留在当前页面内存中，刷新即清除。
+
+## 技术
+
+原生 JavaScript、Canvas 2D、MediaPipe Tasks Vision 与 Vite。GitHub Actions 自动测试、构建并发布到 GitHub Pages。
 
 ## 在线体验与分享
 
@@ -21,8 +42,12 @@
 
 ## 本地启动
 
+需要 Node.js 22.12+（或 24 LTS）与 npm。
+
 ```sh
-npm install
+git clone https://github.com/kpp995ztkb-prog/a-little-answer.git
+cd a-little-answer
+npm ci
 npm run dev
 ```
 
@@ -78,3 +103,15 @@ MediaPipe Tasks Vision 固定为 0.10.32，Apache-2.0。使用官方公开模型
 Worker 使用包内 CommonJS 的浏览器兼容导出，以保留 WASM 加载器依赖的 classic-worker `importScripts`。模型初始化失败或超时会显示重试；识别帧超时、脸部丢失、切换标签页都不会被解释为睁眼。
 
 实现设计见 `docs/crystal-ball-design.md`。
+
+## 反馈与贡献
+
+体验问题或功能建议可提交 [Issue](https://github.com/kpp995ztkb-prog/a-little-answer/issues)。请附上浏览器版本、设备、复现步骤与报错信息。代码修改请通过 Pull Request 提交，并运行上述验证命令。
+
+## 许可与资源
+
+当前尚未为项目代码和视觉素材指定统一开源许可证；仓库公开不代表已授权任意再分发。第三方依赖遵循各自许可证：MediaPipe 使用 Apache-2.0，字体许可文件见 `public/fonts/LICENSES/`。视觉素材包含参考图衍生与生成资源。
+
+## 作者
+
+Bunny 馨子 · [GitHub](https://github.com/kpp995ztkb-prog) · [elenadai0524@gmail.com](mailto:elenadai0524@gmail.com)
