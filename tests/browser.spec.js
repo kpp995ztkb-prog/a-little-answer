@@ -202,7 +202,11 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1920, height: 108
     expect(bounds.objects).toHaveLength(10);
     expect(bounds.objects[0].height).toBeGreaterThan(viewport.height * .68);
     expect(bounds.objects[0].width / bounds.objects[0].height).toBeCloseTo(365 / 325, 5);
-    await expect(page.locator('#guidance')).not.toBeVisible();
+    await expect(page.locator('#guidance')).toBeVisible();
+    const guidance = await page.locator('#guidance').boundingBox();
+    expect(guidance.x).toBeLessThan(viewport.width * .1);
+    expect(guidance.y).toBeLessThan(viewport.height * .1);
+    expect(await page.locator('#guidance p').evaluate(el => getComputedStyle(el).fontFamily)).toContain('Fusion Pixel');
     for (const object of bounds.objects) {
       expect(object.x).toBeGreaterThanOrEqual(16);
       expect(object.x + object.width).toBeLessThanOrEqual(viewport.width - 16);

@@ -124,7 +124,12 @@ body[data-phase='waiting'] .tracking-panel, body[data-phase='awaiting-eyes'] .tr
   body[data-phase='naming'] #nickname { width: min(60vw, 660px); }
 }
 
-.guidance, .tracking-panel { display: none; }
+.tracking-panel { display: none; }
+.guidance { display: block; left: clamp(20px, 3vw, 48px); top: clamp(20px, 4dvh, 40px); bottom: auto; width: auto; max-width: calc(100vw - 40px); transform: none; text-align: left; color: #806570; text-shadow: 0 1px 2px #fff9; pointer-events: none; }
+.guidance .ritual-mark { display: none; }
+.guidance p { margin: 0; font-family: 'Fusion Pixel', monospace; font-size: clamp(16px, 1.4vw, 22px); line-height: 1.8; letter-spacing: .04em; }
+body[data-phase='waiting'] .guidance, body[data-phase='lighting'] .guidance { color: #806570; }
+@media (max-width: 650px) { .guidance p { font-size: 14px; } }
 
 .answer {
   left: 50%; top: calc(var(--center-y) + var(--radius) * .3); transform: translate(-50%, -50%);
