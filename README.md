@@ -1,6 +1,12 @@
 # 答案之镜
 
-[在线体验](https://kpp995ztkb-prog.github.io/a-little-answer/) · [联系作者](mailto:elenadai0524@gmail.com)
+[![在线体验 · 答案之镜](https://raw.githubusercontent.com/kpp995ztkb-prog/a-little-answer/main/docs/images/try-now.svg)](https://kpp995ztkb-prog.github.io/a-little-answer/)
+
+![答案之镜横版纪念卡设计预览](https://raw.githubusercontent.com/kpp995ztkb-prog/a-little-answer/main/public/art/wish-collage-landscape.png)
+
+*纪念卡设计预览：实际体验会加入你的许愿截图、名字、时间和答案。*
+
+[联系作者](mailto:elenadai0524@gmail.com)
 
 
 电脑浏览器里的实时摄像头许愿镜体验。输入昵称后，实时画面缩小呈现白色镜框和粉色装饰背景。胸前双手合拢与闭眼保持 1.5 秒后，镜子轻微放大，装饰物缓慢转动并上下浮动；稳定睁眼 0.4 秒确认后等待 3 秒，白色发光答案在镜子里浮现。答案完整显示 3 秒后生成许愿纪念卡，包含闭眼瞬间的镜框截图、昵称、许愿时间和答案。电脑屏幕使用 16:9 横版拼贴，竖屏使用竖版。内置 60 条答案，再次提问保留昵称并排除上一条答案。
