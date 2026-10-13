@@ -4,11 +4,11 @@
 
 ## 在线体验与分享
 
-GitHub Pages 预定地址：https://kpp995ztkb-prog.github.io/a-little-answer/ （启用托管并成功部署后可访问）
+分享地址：https://kpp995ztkb-prog.github.io/a-little-answer/
 
 打开网页后允许摄像头访问，推荐使用电脑 Chrome 或 Edge。截图与动作识别均在浏览器本地处理。首次打开会加载识别模型，请等待加载完成。
 
-当前仓库尚未启用 Pages，现有 GitHub 套餐不支持该仓库托管。启用后由 `.github/workflows/deploy.yml` 自动部署：推送到 `main` 后安装依赖、运行单元测试并以 `/a-little-answer/` 为资源路径构建。发布进度和失败日志见仓库 Actions；托管来源为 Settings → Pages → GitHub Actions。
+仓库已公开并启用 Pages，由 `.github/workflows/deploy.yml` 自动部署：推送到 `main` 后安装依赖、运行单元测试并以 `/a-little-answer/` 为资源路径构建。发布进度和失败日志见仓库 Actions；托管来源为 Settings → Pages → GitHub Actions。
 
 ## 本地启动
 
